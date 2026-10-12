@@ -1,3 +1,4 @@
+
 import express from 'express'
 import cors from 'cors'
 
@@ -21,17 +22,37 @@ import {
 
 const app = express()
 
-// --------------------------------------------------
-// Middleware
-// --------------------------------------------------
-
 app.use(cors())
-
 app.use(express.json())
 
-// --------------------------------------------------
-// Health check
-// --------------------------------------------------
+let initializationPromise
+
+function initializeBackend() {
+  if (!initializationPromise) {
+    initializationPromise = (async () => {
+      console.log('Initializing IPTV backend...')
+
+      await connectDatabase()
+      await iptvService.initialize()
+
+      console.log('IPTV backend initialized')
+    })().catch((error) => {
+      initializationPromise = undefined
+      throw error
+    })
+  }
+
+  return initializationPromise
+}
+
+app.use(async (req, res, next) => {
+  try {
+    await initializeBackend()
+    next()
+  } catch (error) {
+    next(error)
+  }
+})
 
 app.get('/health', (req, res) => {
   res.json({
@@ -40,57 +61,27 @@ app.get('/health', (req, res) => {
   })
 })
 
-// --------------------------------------------------
-// API routes
-// --------------------------------------------------
-
-app.use(
-  '/api/auth',
-  authRoute
-)
-app.use(
-    '/api',
-    routes
-)
-// --------------------------------------------------
-// Error handling
-// --------------------------------------------------
+app.use('/api/auth', authRoute)
+app.use('/api', routes)
 
 app.use(notFoundMiddleware)
-
 app.use(errorMiddleware)
 
-// --------------------------------------------------
-// Start server
-// --------------------------------------------------
+// Export the Express app for Vercel.
+export default app
 
-async function startServer() {
-  try {
-    console.log('Starting IPTV backend...')
-
-    // Connect MongoDB
-    await connectDatabase()
-
-    // Load IPTV data
-    await iptvService.initialize()
-
-    // Start HTTP server
-    app.listen(
-      env.port,
-      () => {
+// Start a normal HTTP server only when running locally.
+if (!process.env.VERCEL) {
+  initializeBackend()
+    .then(() => {
+      app.listen(env.port, () => {
         console.log(
           `Server running on http://localhost:${env.port}`
         )
-      }
-    )
-  } catch (error) {
-    console.error(
-      'Failed to start server:',
-      error
-    )
-
-    process.exit(1)
-  }
+      })
+    })
+    .catch((error) => {
+      console.error('Failed to start server:', error)
+      process.exitCode = 1
+    })
 }
-
-startServer()

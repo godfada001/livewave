@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
 
+const API_URL = '/api'
+
 function Player({ stream, onClose }) {
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
@@ -43,7 +45,7 @@ function Player({ stream, onClose }) {
     setError(null)
 
     const url =
-      `http://localhost:2000/api/streams/proxy?url=${encodeURIComponent(
+      `${API_URL}/streams/proxy?url=${encodeURIComponent(
         stream.url
       )}`
 

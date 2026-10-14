@@ -141,7 +141,7 @@ class HlsProxyService {
   }
 }
 
-export default new HlsProxyService()*/
+export default new HlsProxyService()
 
 // services/iptv/hlsproxyService.js
 
@@ -347,6 +347,296 @@ class HlsProxyService {
       type: 'binary',
       buffer,
       contentType: contentType || 'application/octet-stream'
+    }
+  }
+}
+
+export { HttpError }
+export default new HlsProxyService()*/
+// services/iptv/hlsproxyService.js
+//
+// Playlists (.m3u8) are small, so they are read fully and rewritten so every
+// URL inside points back at this proxy. Everything else (video/audio
+// segments, keys) is STREAMED: the body is handed to the controller as a web
+// ReadableStream, so the browser starts receiving bytes while the upstream is
+// still sending them, and memory use stays flat no matter how big the segment
+// is.
+
+// A host is allowed if it equals an entry or is a subdomain of it, so
+// 'pluto.tv' covers stitcher-ipv4.pluto.tv, siloh.pluto.tv and so on.
+const DEFAULT_ALLOWED_HOSTS = [
+  'jmp2.uk',
+  'pluto.tv',
+  'plutotv.net'
+]
+
+const MAX_REDIRECTS = 5
+
+// Time allowed to receive response headers (per redirect hop), and to read a
+// whole playlist body.
+const UPSTREAM_TIMEOUT_MS = 15_000
+
+// Time allowed to finish streaming one segment once headers have arrived.
+const SEGMENT_BODY_TIMEOUT_MS = 30_000
+
+// Errors with an HTTP status, so the error middleware can answer with
+// 400 / 403 / 404 / 502 / 504 instead of a blanket 500.
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.name = 'HttpError'
+    this.status = status
+    this.expose = true
+  }
+}
+
+// Extra hosts can be added without a code change by setting
+// HLS_PROXY_EXTRA_HOSTS=host1.example,host2.example in Vercel.
+function getAllowedHosts() {
+  const extra = (process.env.HLS_PROXY_EXTRA_HOSTS || '')
+    .split(',')
+    .map(host => host.trim().toLowerCase())
+    .filter(Boolean)
+
+  return [...DEFAULT_ALLOWED_HOSTS, ...extra]
+}
+
+function isAllowedHost(hostname) {
+  const host = hostname.toLowerCase()
+
+  return getAllowedHosts().some(
+    allowed => host === allowed || host.endsWith(`.${allowed}`)
+  )
+}
+
+function cleanStreamUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return null
+  }
+
+  const match = url.match(/https?:\/\/[^\s\])]+/)
+
+  return match ? match[0].trim() : url.trim()
+}
+
+function validateUrl(url) {
+  let parsed
+
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new HttpError(400, 'Invalid stream URL')
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new HttpError(400, 'Invalid stream protocol')
+  }
+
+  if (!isAllowedHost(parsed.hostname)) {
+    throw new HttpError(
+      403,
+      `Stream host not allowed: ${parsed.hostname}`
+    )
+  }
+
+  return parsed
+}
+
+function proxyUrl(url) {
+  return `/api/streams/proxy?url=${encodeURIComponent(url)}`
+}
+
+function rewritePlaylist(content, baseUrl) {
+  // Rewrite URI="..." attributes used by tags such as
+  // #EXT-X-KEY, #EXT-X-MAP and #EXT-X-MEDIA.
+  content = content.replace(/URI="([^"]+)"/g, (match, uri) => {
+    // Leave inline data: URIs alone, they are not fetched over the network.
+    if (/^data:/i.test(uri)) {
+      return match
+    }
+
+    try {
+      const absoluteUrl = new URL(uri, baseUrl).href
+      return `URI="${proxyUrl(absoluteUrl)}"`
+    } catch {
+      return match
+    }
+  })
+
+  // Rewrite normal media/playlist lines.
+  return content
+    .split(/\r?\n/)
+    .map(line => {
+      const trimmed = line.trim()
+
+      // Preserve empty lines and HLS directives.
+      if (!trimmed || trimmed.startsWith('#')) {
+        return line
+      }
+
+      try {
+        return proxyUrl(new URL(trimmed, baseUrl).href)
+      } catch {
+        return line
+      }
+    })
+    .join('\n')
+}
+
+// Follows redirects by hand so every hop is checked against the allowlist.
+// `controller` aborts the underlying request(s).
+async function fetchUpstream(startUrl, controller) {
+  let current = validateUrl(startUrl)
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const timer = setTimeout(
+      () => controller.abort(),
+      UPSTREAM_TIMEOUT_MS
+    )
+
+    let response
+
+    try {
+      response = await fetch(current.href, {
+        redirect: 'manual',
+        signal: controller.signal
+      })
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new HttpError(504, 'Upstream stream timed out')
+      }
+
+      throw new HttpError(
+        502,
+        `Could not reach upstream stream host: ${current.hostname}`
+      )
+    } finally {
+      clearTimeout(timer)
+    }
+
+    const location = response.headers.get('location')
+
+    if (response.status >= 300 && response.status < 400 && location) {
+      await response.body?.cancel().catch(() => {})
+
+      let next
+
+      try {
+        next = new URL(location, current).href
+      } catch {
+        throw new HttpError(502, 'Upstream sent an invalid redirect')
+      }
+
+      current = validateUrl(next)
+      continue
+    }
+
+    return { response, finalUrl: current.href }
+  }
+
+  throw new HttpError(502, 'Too many redirects from upstream')
+}
+
+class HlsProxyService {
+  async fetch(url) {
+    const cleanUrl = cleanStreamUrl(url)
+
+    if (!cleanUrl) {
+      throw new HttpError(400, 'Stream URL is required')
+    }
+
+    const controller = new AbortController()
+
+    let timer
+    let response
+    let finalUrl
+
+    try {
+      ;({ response, finalUrl } = await fetchUpstream(
+        cleanUrl,
+        controller
+      ))
+
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {})
+
+        throw new HttpError(
+          response.status === 404 ? 404 : 502,
+          `Upstream stream returned ${response.status}`
+        )
+      }
+
+      const contentType = response.headers.get('content-type') || ''
+
+      const isPlaylist =
+        contentType.includes('mpegurl') ||
+        contentType.includes('m3u8') ||
+        finalUrl.includes('.m3u8')
+
+      // Playlists: small, read fully, rewrite.
+      if (isPlaylist) {
+        timer = setTimeout(
+          () => controller.abort(),
+          UPSTREAM_TIMEOUT_MS
+        )
+
+        let content
+
+        try {
+          content = await response.text()
+        } catch {
+          throw new HttpError(504, 'Upstream playlist timed out')
+        }
+
+        return {
+          type: 'playlist',
+          content: rewritePlaylist(content, finalUrl)
+        }
+      }
+
+      // Segments and everything else: stream straight through.
+      timer = setTimeout(
+        () => controller.abort(),
+        SEGMENT_BODY_TIMEOUT_MS
+      )
+
+      // fetch() transparently decompresses gzip/br, so the upstream
+      // Content-Length would not match the bytes we send. Only forward it
+      // when the body was not compressed.
+      const encoded = response.headers.get('content-encoding')
+
+      const contentLength = encoded
+        ? null
+        : response.headers.get('content-length')
+
+      const streamTimer = timer
+      timer = undefined // the caller now owns it via done()/abort()
+
+      return {
+        type: 'stream',
+        body: response.body,
+        contentType: contentType || 'application/octet-stream',
+        contentLength,
+
+        // Call when the whole body was sent.
+        done() {
+          clearTimeout(streamTimer)
+        },
+
+        // Call when the client went away or sending failed, so the
+        // upstream connection is closed instead of left downloading.
+        abort() {
+          clearTimeout(streamTimer)
+          controller.abort()
+        }
+      }
+    } catch (error) {
+      controller.abort()
+      throw error
+    } finally {
+      if (timer) {
+        clearTimeout(timer)
+      }
     }
   }
 }

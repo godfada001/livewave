@@ -1,0 +1,669 @@
+/* =========================================================
+   MOBILE OPTIMISATION
+
+   Imported last (see main.jsx), so these rules win over the
+   older rules in index.css and App.css at equal specificity.
+   Everything phone-specific lives here so it is easy to find,
+   review, or remove.
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   Global touch / viewport behaviour
+   --------------------------------------------------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Removes the double-tap-to-zoom delay on tappable controls. */
+button,
+input {
+  touch-action: manipulation;
+}
+
+/* Dynamic viewport height: mobile browser toolbars no longer
+   push the bottom of the page off screen. Browsers without dvh
+   ignore this and keep the earlier 100vh rule. */
+.auth-page {
+  min-height: 100dvh;
+}
+
+
+/* ---------------------------------------------------------
+   Touch devices: no sticky hover states
+   --------------------------------------------------------- */
+
+@media (hover: none) {
+  .channel-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.09);
+  }
+
+  .channel-card:hover .channel-logo {
+    transform: none;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .channel-card:hover .channel-details h3 {
+    color: rgba(255, 255, 255, 0.94);
+  }
+
+  /* The play icon sits on top of the logo, so keep it hidden
+     on touch instead of flashing over the logo after a tap. */
+  .channel-card:hover .channel-play-icon {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+
+  /* Tactile press feedback instead. */
+  .channel-card:active {
+    transform: scale(0.98);
+  }
+
+  .alphabet-button:hover:not(:disabled),
+  .pagination-button:hover:not(:disabled),
+  .hero-primary-button:hover,
+  .hero-secondary-button:hover,
+  .favorite-button:hover {
+    transform: none;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Small tablets / large phones in landscape (651–750px)
+
+   An old rule in index.css hides every country name at
+   <=750px, leaving only flags with no labels.
+   --------------------------------------------------------- */
+
+@media (max-width: 750px) {
+  .country {
+    justify-content: flex-start;
+  }
+
+  .country span:last-child {
+    display: inline;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Phones (<=650px)
+   --------------------------------------------------------- */
+
+@media (max-width: 650px) {
+
+  /* ----- Page layout -----
+     .layout was a row with a 100%-wide sidebar, which squeezed
+     the channel grid to almost nothing. Stack instead. */
+
+  .layout {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .sidebar {
+    flex-shrink: 1;
+    padding: 12px 0 6px;
+  }
+
+  /* Home / All Channels both do the same thing as the
+     "All Countries" chip below, so drop the duplicate block. */
+  .menu-section {
+    display: none;
+  }
+
+  .sidebar-section {
+    margin-bottom: 10px;
+  }
+
+  .sidebar-section:last-child {
+    margin-bottom: 0;
+  }
+
+
+  /* ----- Favorites: one horizontal swipe row ----- */
+
+  .library-section .sidebar-label {
+    display: none;
+  }
+
+  .favorites-nav {
+    width: auto;
+    height: 32px;
+
+    margin: 0 14px 4px;
+    padding: 0 2px;
+  }
+
+  .favorites-list {
+    flex-direction: row;
+    gap: 8px;
+
+    padding: 0 16px 2px;
+
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .favorites-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .favorite-item {
+    flex: 0 0 auto;
+
+    width: auto;
+    max-width: 240px;
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .favorite-channel {
+    height: 40px;
+    padding: 0 4px 0 8px;
+  }
+
+  .favorite-logo {
+    width: 28px;
+    height: 28px;
+
+    border-radius: 50%;
+  }
+
+  .favorite-name {
+    max-width: 140px;
+    font-size: 13px;
+  }
+
+  .favorite-remove {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sidebar-empty {
+    padding: 2px 16px 0;
+  }
+
+  .sidebar-empty-icon,
+  .sidebar-empty small {
+    display: none;
+  }
+
+  .sidebar-empty p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+
+  /* ----- Countries: one horizontal swipe row of chips ----- */
+
+  .countries-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 6px;
+    padding: 2px 16px 4px;
+
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .countries-section::-webkit-scrollbar {
+    display: none;
+  }
+
+  .countries-section .sidebar-label {
+    flex: 0 0 auto;
+    margin: 0 4px 0 0;
+  }
+
+  .country {
+    flex: 0 0 auto;
+
+    width: auto;
+    height: 40px;
+
+    margin: 0;
+    padding: 0 14px;
+    gap: 8px;
+
+    border-color: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .country.active {
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+
+  /* ----- Header ----- */
+
+  .app-header {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+
+    /* A blurred sticky header repaints on every scroll frame,
+       which is costly on mid-range Android phones. Without the
+       blur, the translucent background lets the page ghost
+       through, so make it solid. */
+    background: #0a0a0e;
+
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .header-search {
+    /* Without this, the input's intrinsic width stops the search
+       box shrinking and pushes the logout button off screen. */
+    min-width: 0;
+
+    height: 42px;
+    margin: 0 10px;
+  }
+
+  .search-icon {
+    margin-left: 12px;
+  }
+
+  /* 16px stops iOS Safari from zooming the page on focus. */
+  .header-search input {
+    font-size: 16px;
+  }
+
+  .search-clear {
+    flex: 0 0 auto;
+
+    width: 40px;
+    height: 40px;
+  }
+
+  .user-avatar {
+    flex-shrink: 0;
+  }
+
+  .logout-button {
+    width: 40px;
+    height: 40px;
+  }
+
+
+  /* ----- Hero: get to the channels faster ----- */
+
+  .hero-section {
+    min-height: 0;
+    gap: 0;
+
+    padding: 28px 16px 24px;
+  }
+
+  .hero-visual {
+    display: none;
+  }
+
+  .hero-content h1 {
+    font-size: clamp(34px, 11vw, 44px);
+  }
+
+  .hero-content p {
+    margin: 16px 0 22px;
+  }
+
+  .hero-actions {
+    gap: 10px;
+  }
+
+  .hero-primary-button,
+  .hero-secondary-button {
+    height: 48px;
+    font-size: 14px;
+  }
+
+
+  /* ----- Content ----- */
+
+  .content {
+    padding: 16px 14px 32px;
+  }
+
+  .content-header {
+    align-items: flex-start;
+    gap: 12px;
+
+    margin-bottom: 14px;
+  }
+
+  .content h2 {
+    font-size: 21px;
+    line-height: 1.25;
+
+    overflow-wrap: anywhere;
+  }
+
+  .channel-count {
+    white-space: nowrap;
+  }
+
+  /* A second, duplicate "N channels" line sits above the
+     alphabet filter; the one in the heading row is enough. */
+  .content > .channel-count {
+    display: none;
+  }
+
+
+  /* ----- Alphabet filter ----- */
+
+  .alphabet-filter {
+    gap: 6px;
+
+    margin-bottom: 16px;
+    padding: 8px;
+
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .alphabet-filter::-webkit-scrollbar {
+    display: none;
+  }
+
+  .alphabet-button {
+    min-width: 40px;
+    height: 40px;
+
+    font-size: 13px;
+  }
+
+
+  /* ----- Channel grid: always two columns ----- */
+
+  .channel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* index.css still has an old card layout (flex, 18px padding,
+     125px min-height) that App.css never reset. On a ~170px-wide
+     phone card it squeezes the thumbnail and adds dead space. */
+  .channel-card {
+    display: block;
+
+    min-height: 0;
+    padding: 0;
+
+    border-radius: 12px;
+  }
+
+  /* 24 blurred badges on screen at once is expensive. */
+  .channel-live {
+    top: 8px;
+    left: 8px;
+
+    padding: 3px 6px;
+
+    background: rgba(0, 0, 0, 0.7);
+
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .channel-logo {
+    width: 72px;
+    height: 48px;
+
+    padding: 6px;
+
+    border-radius: 10px;
+  }
+
+  .channel-logo span {
+    font-size: 22px;
+  }
+
+  .channel-info {
+    padding: 10px 10px 12px;
+  }
+
+  /* The favorite button moves onto the thumbnail (top right),
+     so channel names get the card's full width instead of being
+     cut off to make room for it. */
+  .channel-details {
+    padding-right: 0;
+  }
+
+  .channel-details h3 {
+    font-size: 13px;
+  }
+
+  .channel-details p {
+    margin-top: 4px;
+  }
+
+  .favorite-button,
+  .favorite-button.favorite-active {
+    top: 8px;
+    right: 8px;
+    bottom: auto;
+
+    width: 40px;
+    height: 40px;
+
+    border-radius: 10px;
+
+    background: rgba(0, 0, 0, 0.6);
+
+    font-size: 17px;
+  }
+
+  .favorite-button {
+    border-color: rgba(255, 255, 255, 0.14);
+
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .favorite-button.favorite-active {
+    border-color: rgba(255, 255, 255, 0.3);
+
+    color: #ffffff;
+  }
+
+
+  /* ----- Pagination ----- */
+
+  .pagination {
+    gap: 8px;
+
+    margin-top: 20px;
+    padding: 12px 0 4px;
+  }
+
+  .pagination-button {
+    flex: 1 1 0;
+
+    min-width: 0;
+    height: 44px;
+
+    font-size: 13px;
+  }
+
+  .pagination-info {
+    flex: 0 0 auto;
+
+    min-width: 0;
+
+    font-size: 12px;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Player (<=700px)
+   --------------------------------------------------------- */
+
+@media (max-width: 700px) {
+  .player-overlay {
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+
+    background: rgba(0, 0, 0, 0.96);
+
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .close-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .player-info h2 {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Phones held sideways: the 16:9 video is taller than the
+   screen and the overlay can't scroll, so fill the screen. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .player-overlay {
+    padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+
+    align-items: stretch;
+  }
+
+  .player-container {
+    width: 100%;
+    height: 100%;
+
+    border: 0;
+    border-radius: 0;
+
+    display: flex;
+    flex-direction: column;
+  }
+
+  .player-video-wrapper {
+    flex: 1 1 auto;
+
+    min-height: 0;
+
+    aspect-ratio: auto;
+  }
+
+  .player-info {
+    display: none;
+  }
+
+  /* The <=700px rule above doesn't apply at landscape widths. */
+  .close-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Sign in / register (<=600px)
+   --------------------------------------------------------- */
+
+@media (max-width: 600px) {
+
+  /* Decorative blur layers are costly on low-end phones. */
+  .auth-glow {
+    filter: blur(60px);
+  }
+
+  .auth-container {
+    min-height: 100dvh;
+
+    background: rgba(13, 15, 20, 0.9);
+
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Keep the marketing hero short so the sign-in form is
+     visible without scrolling past it. */
+  .auth-hero {
+    min-height: 0;
+
+    padding: 24px 20px 4px;
+  }
+
+  .auth-hero-content {
+    margin-top: 22px;
+  }
+
+  .auth-hero h1 {
+    font-size: clamp(30px, 9.5vw, 38px);
+    letter-spacing: -1px;
+  }
+
+  .auth-hero-content > p,
+  .auth-features,
+  .auth-footer {
+    display: none;
+  }
+
+  .auth-panel {
+    padding: 18px 12px 28px;
+  }
+
+  .auth-card {
+    max-width: none;
+
+    padding: 22px 16px;
+
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Tighter form so the Sign in button is on the first screen. */
+  .auth-header {
+    margin-bottom: 18px;
+  }
+
+  .auth-header::before {
+    width: 44px;
+    height: 44px;
+
+    margin-bottom: 14px;
+
+    border-radius: 13px;
+
+    font-size: 17px;
+  }
+
+  .auth-header p:not(.eyebrow) {
+    display: none;
+  }
+
+  .input-group {
+    margin-bottom: 6px;
+  }
+
+  /* 16px stops iOS Safari from zooming the page on focus. */
+  .auth-card input {
+    font-size: 16px;
+  }
+}
